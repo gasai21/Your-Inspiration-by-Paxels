@@ -1,6 +1,8 @@
 package com.example.your_inspiration_by_paxels.data.repository
 
 import com.example.your_inspiration_by_paxels.BuildConfig
+import com.example.your_inspiration_by_paxels.data.local.dao.FavoritePhotoDao
+import com.example.your_inspiration_by_paxels.data.local.entity.FavoritePhotoEntity
 import com.example.your_inspiration_by_paxels.data.model.Photo
 import com.example.your_inspiration_by_paxels.data.remote.PexelsApiService
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +12,7 @@ import kotlinx.coroutines.flow.update
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class PhotoRepository {
+class PhotoRepository(private val favoritePhotoDao: FavoritePhotoDao) {
     private val apiKey = BuildConfig.PEXELS_API_KEY
 
     private val apiService = Retrofit.Builder()
@@ -19,10 +21,7 @@ class PhotoRepository {
         .build()
         .create(PexelsApiService::class.java)
 
-    // Flow untuk data curated (untuk Home "All" dan Search awal)
     private val _curatedPhotos = MutableStateFlow<List<Photo>>(emptyList())
-    
-    // Cache untuk SEMUA foto yang pernah di-load agar DetailScreen bisa menemukannya
     private val _allPhotosCache = MutableStateFlow<Map<Int, Photo>>(emptyMap())
 
     private fun updateCache(photos: List<Photo>) {
@@ -83,26 +82,43 @@ class PhotoRepository {
 
     fun getPhotoById(id: Int): Flow<Photo?> = _allPhotosCache.map { it[id] }
 
-    fun getFavoritePhotos(): Flow<List<Photo>> = _allPhotosCache.map { cache ->
-        cache.values.filter { it.isFavorite }
+    fun getFavoritePhotos(): Flow<List<Photo>> {
+        return favoritePhotoDao.getAllFavoritePhotos().map { entities ->
+            entities.map { entity ->
+                Photo(
+                    id = entity.id,
+                    url = entity.url,
+                    photographer = entity.photographer,
+                    alt = entity.alt,
+                    isFavorite = true
+                )
+            }
+        }
     }
 
-    fun toggleFavorite(photoId: Int) {
+    suspend fun toggleFavorite(photo: Photo) {
+        val entity = FavoritePhotoEntity(
+            id = photo.id,
+            url = photo.url,
+            photographer = photo.photographer,
+            alt = photo.alt
+        )
+        if (photo.isFavorite) {
+            favoritePhotoDao.deleteFavoritePhoto(entity)
+        } else {
+            favoritePhotoDao.insertFavoritePhoto(entity)
+        }
+        
+        // Update status di cache lokal agar reaktif
         _allPhotosCache.update { currentCache ->
-            val photo = currentCache[photoId]
-            if (photo != null) {
-                currentCache + (photoId to photo.copy(isFavorite = !photo.isFavorite))
+            val cachedPhoto = currentCache[photo.id]
+            if (cachedPhoto != null) {
+                currentCache + (photo.id to cachedPhoto.copy(isFavorite = !photo.isFavorite))
             } else {
                 currentCache
             }
         }
-        
-        // Juga update di list curated jika ada
-        val currentCurated = _curatedPhotos.value.toMutableList()
-        val index = currentCurated.indexOfFirst { it.id == photoId }
-        if (index != -1) {
-            currentCurated[index] = currentCurated[index].copy(isFavorite = !currentCurated[index].isFavorite)
-            _curatedPhotos.value = currentCurated
-        }
     }
+
+    fun isFavorite(id: Int): Flow<Boolean> = favoritePhotoDao.isFavorite(id)
 }

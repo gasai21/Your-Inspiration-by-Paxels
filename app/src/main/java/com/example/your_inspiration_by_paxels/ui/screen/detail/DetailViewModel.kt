@@ -7,6 +7,7 @@ import com.example.your_inspiration_by_paxels.data.repository.PhotoRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class DetailViewModel(private val repository: PhotoRepository) : ViewModel() {
     fun getPhotoById(id: Int): StateFlow<Photo?> = repository.getPhotoById(id)
@@ -16,7 +17,9 @@ class DetailViewModel(private val repository: PhotoRepository) : ViewModel() {
             initialValue = null
         )
 
-    fun toggleFavorite(photoId: Int) {
-        repository.toggleFavorite(photoId)
+    fun toggleFavorite(photo: Photo) {
+        viewModelScope.launch {
+            repository.toggleFavorite(photo)
+        }
     }
 }

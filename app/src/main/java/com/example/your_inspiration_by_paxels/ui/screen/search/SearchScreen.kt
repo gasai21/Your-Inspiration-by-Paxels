@@ -7,12 +7,16 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.your_inspiration_by_paxels.LocalNetworkStatus
+import com.example.your_inspiration_by_paxels.ui.components.EmptyState
 import com.example.your_inspiration_by_paxels.ui.components.PhotoCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,6 +28,7 @@ fun SearchScreen(
     val query by viewModel.query.collectAsState()
     val searchResult by viewModel.searchResult.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isConnected = LocalNetworkStatus.current
 
     Column(
         modifier = Modifier
@@ -76,39 +81,53 @@ fun SearchScreen(
         }
 
         Box(modifier = Modifier.weight(1f)) {
-            LazyVerticalStaggeredGrid(
-                columns = StaggeredGridCells.Fixed(2),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalItemSpacing = 16.dp,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                itemsIndexed(searchResult) { index, photo ->
-                    // Trigger infinite scroll
-                    if (index >= searchResult.size - 1 && !isLoading) {
-                        SideEffect {
-                            viewModel.loadNextPage()
+            if (!isConnected && searchResult.isEmpty() && !isLoading) {
+                EmptyState(
+                    icon = Icons.Default.Warning,
+                    title = "No Internet Connection",
+                    description = "Please check your connection and try again."
+                )
+            } else if (searchResult.isEmpty() && !isLoading && query.isNotBlank()) {
+                EmptyState(
+                    icon = Icons.Default.Info,
+                    title = "No Results Found",
+                    description = "We couldn't find any photos for \"$query\""
+                )
+            } else {
+                LazyVerticalStaggeredGrid(
+                    columns = StaggeredGridCells.Fixed(2),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalItemSpacing = 16.dp,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    itemsIndexed(searchResult) { index, photo ->
+                        // Trigger infinite scroll
+                        if (index >= searchResult.size - 1 && !isLoading) {
+                            SideEffect {
+                                viewModel.loadNextPage()
+                            }
                         }
+                        PhotoCard(
+                            photo = photo,
+                            onClick = { navigateToDetail(photo.id) }
+                        )
                     }
-                    PhotoCard(
-                        photo = photo,
-                        onClick = { navigateToDetail(photo.id) }
-                    )
-                }
 
-                if (isLoading && searchResult.isNotEmpty()) {
-                    item(span = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan.FullLine) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(32.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                    if (isLoading && searchResult.isNotEmpty()) {
+                        item(span = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan.FullLine) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(32.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }

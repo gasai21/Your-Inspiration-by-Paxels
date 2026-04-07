@@ -101,7 +101,7 @@ fun DetailScreen(
                         }
 
                         IconButton(
-                            onClick = { viewModel.toggleFavorite(data.id) },
+                            onClick = { viewModel.toggleFavorite(data) },
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.surface
                             )

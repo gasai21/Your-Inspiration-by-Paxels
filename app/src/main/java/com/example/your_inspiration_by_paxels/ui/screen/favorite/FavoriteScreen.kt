@@ -5,13 +5,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.your_inspiration_by_paxels.ui.components.EmptyState
 import com.example.your_inspiration_by_paxels.ui.components.PhotoCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,18 +42,12 @@ fun FavoriteScreen(
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         if (favoritePhotos.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "No favorites yet",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            EmptyState(
+                icon = Icons.Default.FavoriteBorder,
+                title = "No Favorites Yet",
+                description = "Explore photos and tap the heart icon to save them here.",
+                modifier = Modifier.padding(paddingValues)
+            )
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),

@@ -11,7 +11,9 @@ import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.example.your_inspiration_by_paxels.LocalNetworkStatus
+import com.example.your_inspiration_by_paxels.ui.components.EmptyState
 import com.example.your_inspiration_by_paxels.ui.components.PhotoCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,6 +35,7 @@ fun HomeScreen(
     val photos by viewModel.photos.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val isConnected = LocalNetworkStatus.current
     val categories = listOf("All", "Nature", "City", "Stars", "Forest", "Mountain")
     
     val listState = rememberLazyStaggeredGridState()
@@ -101,40 +106,54 @@ fun HomeScreen(
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
-                LazyVerticalStaggeredGrid(
-                    state = listState,
-                    columns = StaggeredGridCells.Fixed(2),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalItemSpacing = 16.dp,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    itemsIndexed(photos) { index, photo ->
-                        // Trigger next page when reaching the end
-                        if (index >= photos.size - 1 && !isLoading) {
-                            SideEffect {
-                                viewModel.fetchPhotos()
+                if (!isConnected && photos.isEmpty() && !isLoading) {
+                    EmptyState(
+                        icon = Icons.Default.Warning,
+                        title = "No Internet Connection",
+                        description = "Please check your connection and try again."
+                    )
+                } else if (photos.isEmpty() && !isLoading) {
+                    EmptyState(
+                        icon = Icons.Default.Info,
+                        title = "No Photos Found",
+                        description = "We couldn't find any photos at the moment."
+                    )
+                } else {
+                    LazyVerticalStaggeredGrid(
+                        state = listState,
+                        columns = StaggeredGridCells.Fixed(2),
+                        contentPadding = PaddingValues(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalItemSpacing = 16.dp,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        itemsIndexed(photos) { index, photo ->
+                            // Trigger next page when reaching the end
+                            if (index >= photos.size - 1 && !isLoading) {
+                                SideEffect {
+                                    viewModel.fetchPhotos()
+                                }
                             }
+                            PhotoCard(
+                                photo = photo,
+                                onClick = { navigateToDetail(photo.id) }
+                            )
                         }
-                        PhotoCard(
-                            photo = photo,
-                            onClick = { navigateToDetail(photo.id) }
-                        )
-                    }
-                    
-                    if (isLoading && photos.isNotEmpty()) {
-                        item(span = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan.FullLine) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(32.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                        
+                        if (isLoading && photos.isNotEmpty()) {
+                            item(span = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan.FullLine) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(32.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                         }
                     }

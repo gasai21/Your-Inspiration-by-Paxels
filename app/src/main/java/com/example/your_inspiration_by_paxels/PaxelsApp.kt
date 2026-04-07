@@ -30,12 +30,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun PaxelsApp(
     navController: NavHostController = rememberNavController(),
-    settingViewModel: SettingViewModel
+    settingViewModel: SettingViewModel,
+    repository: PhotoRepository
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val repository = remember { PhotoRepository() }
     val factory = remember { ViewModelFactory(repository) }
 
     Scaffold(

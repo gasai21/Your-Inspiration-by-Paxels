@@ -15,8 +15,4 @@ class FavoriteViewModel(private val repository: PhotoRepository) : ViewModel() {
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
-
-    fun toggleFavorite(photoId: Int) {
-        repository.toggleFavorite(photoId)
-    }
 }
