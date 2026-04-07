@@ -4,13 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.your_inspiration_by_paxels.data.repository.PhotoRepository
+import com.example.your_inspiration_by_paxels.ui.ViewModelFactory
+import com.example.your_inspiration_by_paxels.ui.screen.setting.SettingViewModel
 import com.example.your_inspiration_by_paxels.ui.theme.YourinspirationbypaxelsTheme
 
 class MainActivity : ComponentActivity() {
@@ -18,30 +17,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            YourinspirationbypaxelsTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+            val repository = PhotoRepository()
+            val factory = ViewModelFactory(repository)
+            val settingViewModel: SettingViewModel = viewModel(factory = factory)
+            val isDarkMode by settingViewModel.isDarkMode.collectAsState()
+
+            YourinspirationbypaxelsTheme(darkTheme = isDarkMode) {
+                PaxelsApp(settingViewModel = settingViewModel)
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    YourinspirationbypaxelsTheme {
-        Greeting("Android")
     }
 }
