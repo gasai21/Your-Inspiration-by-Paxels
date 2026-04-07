@@ -7,7 +7,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -28,8 +29,11 @@ fun HomeScreen(
     navigateToSearch: () -> Unit
 ) {
     val photos by viewModel.photos.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
     val categories = listOf("All", "Nature", "City", "Stars", "Forest", "Mountain")
-    var selectedCategory by remember { mutableStateOf("All") }
+    
+    val listState = rememberLazyStaggeredGridState()
 
     Scaffold(
         topBar = {
@@ -45,7 +49,6 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
                 
-                // Search Bar (Static look, clicks to navigate)
                 OutlinedCard(
                     onClick = navigateToSearch,
                     shape = RoundedCornerShape(28.dp),
@@ -73,7 +76,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Search photos...",
+                            text = "Search for inspiration...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -92,28 +95,55 @@ fun HomeScreen(
                     CategoryItem(
                         category = category,
                         isSelected = category == selectedCategory,
-                        onClick = { selectedCategory = category }
+                        onClick = { viewModel.setCategory(category) }
                     )
                 }
             }
 
-            val filteredPhotos = if (selectedCategory == "All") {
-                photos
-            } else {
-                photos.filter { it.alt.contains(selectedCategory, ignoreCase = true) }
-            }
-
-            LazyVerticalStaggeredGrid(
-                columns = StaggeredGridCells.Fixed(2),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalItemSpacing = 16.dp,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(filteredPhotos) { photo ->
-                    PhotoCard(
-                        photo = photo,
-                        onClick = { navigateToDetail(photo.id) }
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyVerticalStaggeredGrid(
+                    state = listState,
+                    columns = StaggeredGridCells.Fixed(2),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalItemSpacing = 16.dp,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    itemsIndexed(photos) { index, photo ->
+                        // Trigger next page when reaching the end
+                        if (index >= photos.size - 1 && !isLoading) {
+                            SideEffect {
+                                viewModel.fetchPhotos()
+                            }
+                        }
+                        PhotoCard(
+                            photo = photo,
+                            onClick = { navigateToDetail(photo.id) }
+                        )
+                    }
+                    
+                    if (isLoading && photos.isNotEmpty()) {
+                        item(span = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan.FullLine) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(32.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                if (isLoading && photos.isEmpty()) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }

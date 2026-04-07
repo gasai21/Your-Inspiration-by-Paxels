@@ -4,14 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.your_inspiration_by_paxels.ui.components.PhotoCard
@@ -24,6 +23,7 @@ fun SearchScreen(
 ) {
     val query by viewModel.query.collectAsState()
     val searchResult by viewModel.searchResult.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     Column(
         modifier = Modifier
@@ -75,17 +75,49 @@ fun SearchScreen(
             )
         }
 
-        LazyVerticalStaggeredGrid(
-            columns = StaggeredGridCells.Fixed(2),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalItemSpacing = 16.dp,
-            modifier = Modifier.weight(1f)
-        ) {
-            items(searchResult) { photo ->
-                PhotoCard(
-                    photo = photo,
-                    onClick = { navigateToDetail(photo.id) }
+        Box(modifier = Modifier.weight(1f)) {
+            LazyVerticalStaggeredGrid(
+                columns = StaggeredGridCells.Fixed(2),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalItemSpacing = 16.dp,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemsIndexed(searchResult) { index, photo ->
+                    // Trigger infinite scroll
+                    if (index >= searchResult.size - 1 && !isLoading) {
+                        SideEffect {
+                            viewModel.loadNextPage()
+                        }
+                    }
+                    PhotoCard(
+                        photo = photo,
+                        onClick = { navigateToDetail(photo.id) }
+                    )
+                }
+
+                if (isLoading && searchResult.isNotEmpty()) {
+                    item(span = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan.FullLine) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(32.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (isLoading && searchResult.isEmpty()) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

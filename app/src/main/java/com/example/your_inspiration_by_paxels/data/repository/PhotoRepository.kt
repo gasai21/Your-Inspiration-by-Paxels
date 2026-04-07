@@ -1,43 +1,108 @@
 package com.example.your_inspiration_by_paxels.data.repository
 
+import com.example.your_inspiration_by_paxels.BuildConfig
 import com.example.your_inspiration_by_paxels.data.model.Photo
+import com.example.your_inspiration_by_paxels.data.remote.PexelsApiService
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class PhotoRepository {
-    private val _photos = MutableStateFlow(
-        listOf(
-            Photo(1, "https://images.pexels.com/photos/167699/pexels-photo-167699.jpeg", "Sasha Prasastika", "Nature"),
-            Photo(2, "https://images.pexels.com/photos/235986/pexels-photo-235986.jpeg", "Pixabay", "Stars"),
-            Photo(3, "https://images.pexels.com/photos/1133957/pexels-photo-1133957.jpeg", "Philipp Maiwald", "City"),
-            Photo(4, "https://images.pexels.com/photos/459225/pexels-photo-459225.jpeg", "Pixabay", "Forest"),
-            Photo(5, "https://images.pexels.com/photos/1323550/pexels-photo-1323550.jpeg", "Simon Matzinger", "Mountain"),
-            Photo(6, "https://images.pexels.com/photos/326055/pexels-photo-326055.jpeg", "Pixabay", "Butterfly")
-        )
-    )
+    private val apiKey = BuildConfig.PEXELS_API_KEY
 
-    fun getPhotos(): Flow<List<Photo>> = _photos
+    private val apiService = Retrofit.Builder()
+        .baseUrl("https://api.pexels.com/v1/")
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+        .create(PexelsApiService::class.java)
 
-    fun getPhotoById(id: Int): Flow<Photo?> = _photos.map { photos ->
-        photos.find { it.id == id }
+    // Flow untuk data curated (untuk Home "All" dan Search awal)
+    private val _curatedPhotos = MutableStateFlow<List<Photo>>(emptyList())
+    
+    // Cache untuk SEMUA foto yang pernah di-load agar DetailScreen bisa menemukannya
+    private val _allPhotosCache = MutableStateFlow<Map<Int, Photo>>(emptyMap())
+
+    private fun updateCache(photos: List<Photo>) {
+        _allPhotosCache.update { currentCache ->
+            currentCache + photos.associateBy { it.id }
+        }
     }
 
-    fun searchPhotos(query: String): Flow<List<Photo>> = _photos.map { photos ->
-        photos.filter { it.photographer.contains(query, ignoreCase = true) || it.alt.contains(query, ignoreCase = true) }
+    suspend fun fetchCuratedPhotos(page: Int): List<Photo> {
+        if (apiKey.isEmpty()) return emptyList()
+        return try {
+            val response = apiService.getCuratedPhotos(apiKey, page = page, perPage = 20)
+            val newPhotos = response.photos.map { remote ->
+                Photo(
+                    id = remote.id,
+                    url = remote.src.large2x,
+                    photographer = remote.photographer,
+                    alt = remote.alt
+                )
+            }
+            
+            updateCache(newPhotos)
+            
+            if (page == 1) {
+                _curatedPhotos.value = newPhotos
+            } else {
+                _curatedPhotos.value = _curatedPhotos.value + newPhotos
+            }
+            newPhotos
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
     }
 
-    fun getFavoritePhotos(): Flow<List<Photo>> = _photos.map { photos ->
-        photos.filter { it.isFavorite }
+    suspend fun searchRemotePhotos(query: String, page: Int): List<Photo> {
+        if (apiKey.isEmpty()) return emptyList()
+        return try {
+            val response = apiService.searchPhotos(apiKey, query, page = page, perPage = 20)
+            val newPhotos = response.photos.map { remote ->
+                Photo(
+                    id = remote.id,
+                    url = remote.src.large2x,
+                    photographer = remote.photographer,
+                    alt = remote.alt
+                )
+            }
+            
+            updateCache(newPhotos)
+            newPhotos
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    fun getPhotos(): Flow<List<Photo>> = _curatedPhotos
+
+    fun getPhotoById(id: Int): Flow<Photo?> = _allPhotosCache.map { it[id] }
+
+    fun getFavoritePhotos(): Flow<List<Photo>> = _allPhotosCache.map { cache ->
+        cache.values.filter { it.isFavorite }
     }
 
     fun toggleFavorite(photoId: Int) {
-        val currentList = _photos.value.toMutableList()
-        val index = currentList.indexOfFirst { it.id == photoId }
+        _allPhotosCache.update { currentCache ->
+            val photo = currentCache[photoId]
+            if (photo != null) {
+                currentCache + (photoId to photo.copy(isFavorite = !photo.isFavorite))
+            } else {
+                currentCache
+            }
+        }
+        
+        // Juga update di list curated jika ada
+        val currentCurated = _curatedPhotos.value.toMutableList()
+        val index = currentCurated.indexOfFirst { it.id == photoId }
         if (index != -1) {
-            val photo = currentList[index]
-            currentList[index] = photo.copy(isFavorite = !photo.isFavorite)
-            _photos.value = currentList
+            currentCurated[index] = currentCurated[index].copy(isFavorite = !currentCurated[index].isFavorite)
+            _curatedPhotos.value = currentCurated
         }
     }
 }
